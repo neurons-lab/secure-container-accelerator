@@ -2,7 +2,7 @@
 import os
 from constructs import Construct
 from aws_cdk import (
-    Aspects,
+    # Aspects,
     App,
     Environment,
     Stack,
@@ -43,10 +43,18 @@ class AppStack(Stack):
         # Env
         zone_name = os.environ.get('ZONE_NAME', 'example.com')
         domain_name = os.environ.get('DOMAIN_NAME', 'app.example.com')
+        use_existing_zone = os.environ.get('USE_EXISTING_ZONE', '').lower() == 'true'
 
         # Hosted Zone
-        hosted_zone = route53.HostedZone.from_lookup(
-            self, 'HostedZone', domain_name=zone_name)
+        if use_existing_zone:
+            hosted_zone = route53.HostedZone.from_lookup(
+                self, 'HostedZone', domain_name=zone_name)
+        else:
+            # For test `cdk synth` without creds
+            hosted_zone = route53.HostedZone(
+                self, 'HostedZone',
+                zone_name=zone_name,
+                comment='Hosted Zone for Sample App')
 
         # Cert
         cert = acm.Certificate(
@@ -109,8 +117,8 @@ app = App()
 AppStack(
     app, 'ContainerAcceleratorStack',
     env=Environment(
-        account=os.getenv('CDK_DEFAULT_ACCOUNT', os.getenv('AWS_ACCOUNT_ID')),
-        region=os.getenv('CDK_DEFAULT_REGION', os.getenv('AWS_DEFAULT_REGION'))
+        account=os.getenv('AWS_ACCOUNT_ID', os.getenv('CDK_DEFAULT_ACCOUNT')),
+        region=os.getenv('AWS_DEFAULT_REGION', os.getenv('CDK_DEFAULT_REGION'))
     ))
 
 # Synth
