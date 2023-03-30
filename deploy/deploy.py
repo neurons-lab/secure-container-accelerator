@@ -105,9 +105,8 @@ app = App()
 AppStack(
     app, 'ContainerAcceleratorStack',
     env=Environment(
-        account=os.getenv('ACCOUNT'),
-        region=os.getenv('REGION'),
-    ))
+        account=os.environ["CDK_DEFAULT_ACCOUNT"],
+        region=os.environ["CDK_DEFAULT_REGION"]))
 
 # Synth
 app.synth()
