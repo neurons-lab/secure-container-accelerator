@@ -6,7 +6,10 @@
 version: 2
 updates:
   - package-ecosystem: "pip" # See documentation for possible values
-    directory: "/" # Location of package manifests
+    directory: "/app" # Location of app files
     schedule:
       interval: "weekly"
-
+  - package-ecosystem: "pip" # See documentation for possible values
+    directory: "/deploy" # Location of CDK deploy files
+    schedule:
+      interval: "weekly"
