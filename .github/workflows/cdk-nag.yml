@@ -16,6 +16,8 @@ jobs:
       run: |
         cd deploy
         cdk synth
-    - name: Test
-      run: |
-        cfn_nag_scan --input-path deploy/cdk.out
+    - name: Stelligent cfn_nag
+      uses: stelligent/cfn_nag@v0.8.6
+      with:
+        input_path: deployment
+
