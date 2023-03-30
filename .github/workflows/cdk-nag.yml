@@ -8,8 +8,9 @@ jobs:
   cdk-nag:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Install dependencies
-        run: npm install -g cdk-nag
-      - name: Run cdk-nag
-        run: cdk-nag -a -v
+      - name: Stelligent cfn_nag
+        uses: stelligent/cfn_nag@v0.8.6
+        with:
+            # Where cfn_nag_scan should scan for violations (default: $GITHUB_WORKSPACE).
+            input_path: deploy# optional, default is .
+
