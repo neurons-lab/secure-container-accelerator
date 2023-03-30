@@ -1,6 +1,12 @@
 name: NAG Check
 
 on: [push]
+permissions:
+      id-token: write   # This is required for requesting the JWT
+      contents: read    # This is required for actions/checkout
+
+env:
+  AWS_REGION : "us-east-1"
 
 jobs:
   build-and-test:
@@ -11,6 +17,12 @@ jobs:
       run: |
         npm install -g aws-cdk
         pip install -r deploy/requirements.txt
+    - name: configure aws credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: arn:aws:iam::433559402488:role/GitHubActionCDKRole
+        role-session-name: samplerolesession
+        aws-region: ${{ env.AWS_REGION }}
     - name: Build
       run: |
         cd deploy
