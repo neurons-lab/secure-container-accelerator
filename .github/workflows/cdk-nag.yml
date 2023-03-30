@@ -23,6 +23,9 @@ jobs:
         role-to-assume: arn:aws:iam::433559402488:role/GitHubActionCDKRole
         role-session-name: samplerolesession
         aws-region: ${{ env.AWS_REGION }}
+    - name:  Copy index.html to s3
+      run: |
+          aws s3 ls
     - name: Build
       run: |
         cd deploy
@@ -31,7 +34,7 @@ jobs:
       uses: stelligent/cfn_nag@v0.8.6
       with:
         input_path: deploy/cdk.out/
-        extra_args: -t ..*\.template\.json -o sarif
+        extra_args: -t ..*\.template\.json
 #    - uses: github/codeql-action/upload-sarif@v1
 #      with:
 #        sarif_file: cfn_nag.sarif
