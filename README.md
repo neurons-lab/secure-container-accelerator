@@ -6,7 +6,13 @@ AWS CDK Example of Docker container deploy in AWS Infrastructure as Fargate Serv
 
 1. Have Docker service  installed and running.
 
-2. Install AWS CDK.
+2. Configure AWS credentials.
+
+3. Create Public HostedZone in AWS Ruote53.
+
+4. Create `.env` file in `deploy` directory based on `.env.sample` file and configure variables.
+
+5. Install AWS CDK.
 
     https://docs.aws.amazon.com/cdk/v2/guide/getting_started.html
 
@@ -14,13 +20,22 @@ AWS CDK Example of Docker container deploy in AWS Infrastructure as Fargate Serv
     npm install -g aws-cdk
     ```
 
-3. Configure AWS credentials.
-
-4. Bootstrap CDK if it is not bootstrapped.
+6. Bootstrap CDK if it is not bootstrapped.
 
     ```bash
     cdk bootstrap
     ```
+
+## Application
+
+Application is a simple Python Streamlit application that runs on 80 port.
+
+Can be run locally with Docker.
+
+```bash
+docker compose build
+docker compose up
+```
 
 ## Deploy
 
@@ -49,7 +64,8 @@ ContainerAcceleratorStack: deploying... [1/1]
 ✨  Deployment time: 60.28s
 
 Outputs:
-ContainerAcceleratorStack.AppServiceUrl = Conta-AppSe-19HEDVTH7E208-717646561.us-east-1.elb.amazonaws.com
+ContainerAcceleratorStack.AppServiceAlbUrl = Conta-AppSe-19HEDVTH7E208-717646561.us-east-1.elb.amazonaws.com
+ContainerAcceleratorStack.AppServiceUrl = sample-container-app.neurons-lab-demo.com
 
 Stack ARN:
 arn:aws:cloudformation:us-east-1:111111111111:stack/ContainerAcceleratorStack/cfb54bd0-ce64-11ed-8dcb-121b44e79a29
