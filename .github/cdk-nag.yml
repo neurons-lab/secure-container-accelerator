@@ -1,0 +1,15 @@
+name: cdk-nag
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  cdk-nag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install dependencies
+        run: npm install -g cdk-nag
+      - name: Run cdk-nag
+        run: cdk-nag -a -v
