@@ -19,5 +19,6 @@ jobs:
     - name: Stelligent cfn_nag
       uses: stelligent/cfn_nag@v0.8.6
       with:
-        input_path: deploy/cdk.out
+        input_path: deploy/cdk.out/
+        extra_args: >-
 
