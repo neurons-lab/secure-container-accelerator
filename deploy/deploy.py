@@ -4,6 +4,7 @@ from constructs import Construct
 from aws_cdk import (
     # Aspects,
     App,
+    Aspects,
     Environment,
     Stack,
     Duration,
@@ -16,7 +17,7 @@ from aws_cdk import (
     aws_route53_targets as route53_targets,
     aws_certificatemanager as acm,
 )
-from cdk_nag import AwsSolutionsChecks
+from cdk_nag import AwsSolutionsChecks, NagSuppressions
 from dotenv import load_dotenv
 load_dotenv('.env.sample', override=False)
 load_dotenv('.env', override=True)
