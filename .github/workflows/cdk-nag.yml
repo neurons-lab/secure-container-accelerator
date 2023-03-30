@@ -7,6 +7,7 @@ permissions:
 
 env:
   AWS_REGION : "us-east-1"
+  AWS_ACCOUNT_ID : "433559402488"
 
 jobs:
   build-and-test:
@@ -29,6 +30,7 @@ jobs:
     - name: Build
       run: |
         cd deploy
+        cdk bootstrap aws://${{ env.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }}
         cdk synth
 #    - name: Stelligent cfn_nag
 #      uses: stelligent/cfn_nag@v0.8.6
