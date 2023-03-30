@@ -10,7 +10,6 @@ jobs:
     - name: Install dependencies
       run: |
         npm install -g aws-cdk
-        npm install -g cdk-nag
         pip install -r deploy/requirements.txt
     - name: Build
       run: |
@@ -20,5 +19,5 @@ jobs:
       uses: stelligent/cfn_nag@v0.8.6
       with:
         input_path: deploy/cdk.out/
-        extra_args: >-
+        extra_args: -t ..*\.template\.json
 
