@@ -2,7 +2,6 @@
 import os
 from constructs import Construct
 from aws_cdk import (
-    # Aspects,
     App,
     Aspects,
     Environment,
@@ -17,7 +16,7 @@ from aws_cdk import (
     aws_route53_targets as route53_targets,
     aws_certificatemanager as acm,
 )
-from cdk_nag import AwsSolutionsChecks, NagSuppressions
+from cdk_nag import AwsSolutionsChecks, NagSuppressions, HIPAASecurityChecks
 from dotenv import load_dotenv
 load_dotenv('.env.sample', override=False)
 load_dotenv('.env', override=True)
@@ -112,7 +111,7 @@ class AppStack(Stack):
 
 # App
 app = App()
-Aspects.of(app).add(AwsSolutionsChecks(verbose=True))
+Aspects.of(app).add(HIPAASecurityChecks(verbose=True))
 
 # Stack
 AppStack(
