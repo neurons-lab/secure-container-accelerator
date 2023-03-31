@@ -31,11 +31,11 @@ class TestNug(unittest.TestCase):
         )
         for warning in hippa_warnings:
             log.error(warning.entry.data)
-        assert not hippa_warnings
-
         aws_warnings = assertions.Annotations.from_stack(stack).find_warning(
             "*", assertions.Match.string_like_regexp("AwsSolutions-.*")
         )
         for warning in aws_warnings:
             log.error(warning.entry.data)
+
+        assert not hippa_warnings
         assert not aws_warnings
