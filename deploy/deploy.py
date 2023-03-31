@@ -77,7 +77,7 @@ class AppStack(Stack):
                 ),
                 ec2.SubnetConfiguration(
                     name='public',
-                    subnet_type=ec2.SubnetType.PRVATE,
+                    subnet_type=ec2.SubnetType.PRIVATE,
                     cidr_mask=24,
                     map_public_ip_on_launch=False
                 )
