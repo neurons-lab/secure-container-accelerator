@@ -8,6 +8,7 @@ from aws_cdk import (
     Stack,
     Duration,
     CfnOutput,
+    aws_logs as logs
     aws_ec2 as ec2,
     aws_ecs as ecs,
     aws_ecs_patterns as ecs_patterns,
@@ -74,6 +75,17 @@ class AppStack(Stack):
                 )
             ])
 
+        log_group = logs.LogGroup(self, "VpcFlowLogsLogGroup")
+
+        role = iam.Role(self, "VpcFlowLogsRole",
+            assumed_by=iam.ServicePrincipal("vpc-flow-logs.amazonaws.com")
+        )
+
+        ec2.FlowLog(self, "VpcFlowLog",
+            resource_type=ec2.FlowLogResourceType.from_vpc(vpc),
+            destination=ec2.FlowLogDestination.to_cloud_watch_logs(log_group, role)
+        )
+        
         # Docker Image
         image = ecr_assets.DockerImageAsset(
             self, 'AppImage', directory='../app')
