@@ -27,7 +27,7 @@ class TestNug(unittest.TestCase):
         ))
 
         hippa_warnings = assertions.Annotations.from_stack(stack).find_warning(
-            "*", assertions.Match.string_like_regexp("HIPAASecurity-.*")
+            "*", assertions.Match.string_like_regexp("HIPAA.Security-.*")
         )
         for warning in hippa_warnings:
             log.error(warning.entry.data)
