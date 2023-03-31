@@ -8,7 +8,7 @@ from aws_cdk import (
     Stack,
     Duration,
     CfnOutput,
-    aws_logs as logs
+    aws_logs as logs,
     aws_ec2 as ec2,
     aws_ecs as ecs,
     aws_ecs_patterns as ecs_patterns,
