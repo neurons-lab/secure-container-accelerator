@@ -91,7 +91,7 @@ class AppStack(Stack):
             ip_protocol="-1",
             cidr_ip=vpc.vpc_cidr_block
         )
-        
+
         # KMS Key for VPC Flow Logs Encryption
         kms_key = kms.Key(
             self, "VpcFlowLogsKmsKey",
