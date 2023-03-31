@@ -1,6 +1,6 @@
 """AWS CDK Deploy Script"""
 import os
-from constructs import Construct
+from constructs import Construct, DependencyGroup
 from aws_cdk import (
     App,
     Aspects,
@@ -8,9 +8,13 @@ from aws_cdk import (
     Stack,
     Duration,
     CfnOutput,
+    RemovalPolicy,
+    aws_elasticloadbalancingv2 as elbv2,
     aws_logs as logs,
+    aws_kms as kms,
     aws_iam as iam,
     aws_ec2 as ec2,
+    aws_s3 as s3,
     aws_ecs as ecs,
     aws_ecs_patterns as ecs_patterns,
     aws_ecr_assets as ecr_assets,
@@ -45,18 +49,10 @@ class AppStack(Stack):
         # Env
         zone_name = os.environ.get('ZONE_NAME', 'example.com')
         domain_name = os.environ.get('DOMAIN_NAME', 'app.example.com')
-        use_existing_zone = os.environ.get('USE_EXISTING_ZONE', '').lower() == 'true'
 
-        # Hosted Zone
-        if use_existing_zone:
-            hosted_zone = route53.HostedZone.from_lookup(
+        # Route53 Zone
+        hosted_zone = route53.HostedZone.from_lookup(
                 self, 'HostedZone', domain_name=zone_name)
-        else:
-            # For test `cdk synth` without creds
-            hosted_zone = route53.HostedZone(
-                self, 'HostedZone',
-                zone_name=zone_name,
-                comment='Hosted Zone for Sample App')
 
         # Cert
         cert = acm.Certificate(
@@ -82,31 +78,65 @@ class AppStack(Stack):
                 )
             ])
         default_security_group = ec2.SecurityGroup.from_security_group_id(
-            self, "DefaultSecurityGroup", vpc.vpc_default_security_group
-        )
-        # disable inbound traffic on the default security group
-        default_security_group.add_ingress_rule(
-            ec2.Peer.any_ipv4(),
-            ec2.Port.all_traffic(),
-            "Disallow all inbound traffic"
+            self, "default", vpc.vpc_default_security_group
         )
 
-        # disable outbound traffic on the default security group
-        default_security_group.add_egress_rule(
-            ec2.Peer.any_ipv4(),
-            ec2.Port.all_traffic(),
-            "Disallow all outbound traffic"
+        ec2.CfnSecurityGroupEgress(
+            self,
+            "AllowOnlyVPCOutbound",
+            group_id=default_security_group.security_group_id,
+            ip_protocol="-1",
+            cidr_ip=vpc.vpc_cidr_block
+        )
+        ec2.CfnSecurityGroupIngress(
+            self,
+            "AllowOnlyVPCInbound",
+            group_id=default_security_group.security_group_id,
+            ip_protocol="-1",
+            cidr_ip=vpc.vpc_cidr_block
         )
         
-        log_group = logs.LogGroup(self, "VpcFlowLogsLogGroup")
+        # KMS Key for VPC Flow Logs Encryption
+        kms_key = kms.Key(
+            self, "VpcFlowLogsKmsKey",
+            alias="vpc-flow-logs-kms-key",
+            description="KMS Key for VPC Flow Logs Encryption",
+            enable_key_rotation=True,
+            removal_policy=RemovalPolicy.DESTROY
+        )
+        # KMS Policy to allow VPC Flow Logs to write logs to CloudWatch Logs
+        kms_resource_policy_vpc_flow_logs = kms_key.add_to_resource_policy(
+            iam.PolicyStatement(
+                actions=["kms:Encrypt", "kms:Decrypt", "kms:ReEncrypt*", "kms:GenerateDataKey*", "kms:DescribeKey"],
+                resources=["*"],
+                principals=[iam.ServicePrincipal("vpc-flow-logs.amazonaws.com")]
+            )
+        )
+        # KMS Policy to allow CloudWatch Logs to write logs to KMS
+        kms_resource_policy_cloudwatch_logs = kms_key.add_to_resource_policy(
+            iam.PolicyStatement(
+                actions=["kms:Encrypt", "kms:Decrypt", "kms:ReEncrypt*", "kms:GenerateDataKey*", "kms:DescribeKey"],
+                resources=["*"],
+                principals=[iam.ServicePrincipal("logs.amazonaws.com")]
+            )
+        )
+
+
+        log_group = logs.LogGroup(
+            self, "VpcFlowLogs",
+            log_group_name="/vpc/flow-logs",
+            encryption_key=kms_key,
+            removal_policy=RemovalPolicy.DESTROY
+        )
 
         role = iam.Role(self, "VpcFlowLogsRole",
-            assumed_by=iam.ServicePrincipal("vpc-flow-logs.amazonaws.com")
+            assumed_by=iam.ServicePrincipal("vpc-flow-logs.amazonaws.com")        
         )
 
         ec2.FlowLog(self, "VpcFlowLog",
             resource_type=ec2.FlowLogResourceType.from_vpc(vpc),
-            destination=ec2.FlowLogDestination.to_cloud_watch_logs(log_group, role)
+            destination=ec2.FlowLogDestination.to_cloud_watch_logs(log_group, role),
+            traffic_type=ec2.FlowLogTrafficType.ALL
         )
         
         # Docker Image
@@ -114,6 +144,69 @@ class AppStack(Stack):
             self, 'AppImage', directory='../app')
 
         # Fargate Application
+        alb_securiy_group = ec2.SecurityGroup(
+            self, 'AppAlbSecurityGroup',
+            vpc=vpc,
+            allow_all_outbound=True,
+            description='App ALB Security Group',
+            security_group_name='app-alb-security-group'
+        )
+
+        alb_securiy_group.add_ingress_rule(
+            description='Allow HTTPS from Internet',
+            peer=ec2.Peer.any_ipv4(),
+            connection=ec2.Port.tcp(443)
+        )
+
+        alb_securiy_group.add_ingress_rule(
+            description='Allow HTTP from Internet',
+            peer=ec2.Peer.any_ipv4(),
+            connection=ec2.Port.tcp(80)
+        )
+
+        service_securiy_group = ec2.SecurityGroup(
+            self, 'AppServiceSecurityGroup',
+            vpc=vpc,
+            allow_all_outbound=True,
+            description='App Service Security Group',
+            security_group_name='app-service-security-group'
+        )
+
+        service_securiy_group.add_ingress_rule(
+            description='Allow HTTP from ALB',
+            peer=alb_securiy_group,
+            connection=ec2.Port.tcp(80)
+        )
+
+        service_securiy_group.add_ingress_rule(
+            description='Allow HTTPS from ALB',
+            peer=alb_securiy_group,
+            connection=ec2.Port.tcp(443)
+        )
+
+        alb = elbv2.ApplicationLoadBalancer(
+            self, 'AppAlb',
+            vpc=vpc,
+            internet_facing=True,
+            security_group=alb_securiy_group,
+            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC),
+            load_balancer_name='app-alb'
+        )
+        # ALB log bucket
+        alb_log_bucket = s3.Bucket(
+            self, 'AppAlbLogBucket',
+            removal_policy=RemovalPolicy.DESTROY,
+            encryption=s3.BucketEncryption.S3_MANAGED,
+            block_public_access=s3.BlockPublicAccess.BLOCK_ALL
+        )
+
+        # enable ALB logs
+        alb.log_access_logs(
+            bucket=alb_log_bucket,
+            prefix='app-alb'
+        )
+
+
         cluster = ecs.Cluster(self, 'AppCluster', vpc=vpc)
         service = ecs_patterns.ApplicationLoadBalancedFargateService(
             self, 'AppService',
@@ -126,7 +219,12 @@ class AppStack(Stack):
             certificate=cert,
             task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
                 image=ecs.ContainerImage.from_docker_image_asset(image),
-            ))
+            ),
+            task_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
+            security_groups=[service_securiy_group],
+            load_balancer=alb,
+            service_name='app-service'
+        )
         CfnOutput(
             self, 'AppServiceAlbUrl', description='App Service ALB URL',
             export_name='appServiceAlbUrl', value=service.load_balancer.load_balancer_dns_name)
@@ -146,7 +244,9 @@ class AppStack(Stack):
 
 # App
 app = App()
-Aspects.of(app).add(HIPAASecurityChecks(verbose=True))
+# Aspects.of(app).add(HIPAASecurityChecks(verbose=True,reports=True))
+# Aspects.of(app).add(AwsSolutionsChecks(verbose=True,reports=True))
+
 
 # Stack
 AppStack(
