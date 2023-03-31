@@ -9,6 +9,7 @@ from aws_cdk import (
     Duration,
     CfnOutput,
     aws_logs as logs,
+    aws_iam as iam,
     aws_ec2 as ec2,
     aws_ecs as ecs,
     aws_ecs_patterns as ecs_patterns,
