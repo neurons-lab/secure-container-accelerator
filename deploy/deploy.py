@@ -73,6 +73,13 @@ class AppStack(Stack):
                     name='public',
                     subnet_type=ec2.SubnetType.PUBLIC,
                     cidr_mask=24,
+                    map_public_ip_on_launch=False
+                ),
+                ec2.SubnetConfiguration(
+                    name='public',
+                    subnet_type=ec2.SubnetType.PRVATE,
+                    cidr_mask=24,
+                    map_public_ip_on_launch=False
                 )
             ])
 
