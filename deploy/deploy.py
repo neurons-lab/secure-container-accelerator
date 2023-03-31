@@ -76,12 +76,28 @@ class AppStack(Stack):
                     map_public_ip_on_launch=False
                 ),
                 ec2.SubnetConfiguration(
-                    name='public',
+                    name='private',
                     subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS,
                     cidr_mask=24
                 )
             ])
+        default_security_group = ec2.SecurityGroup.from_security_group_id(
+            self, "DefaultSecurityGroup", vpc.vpc_default_security_group
+        )
+        # disable inbound traffic on the default security group
+        default_security_group.add_ingress_rule(
+            ec2.Peer.any_ipv4(),
+            ec2.Port.all_traffic(),
+            "Disallow all inbound traffic"
+        )
 
+        # disable outbound traffic on the default security group
+        default_security_group.add_egress_rule(
+            ec2.Peer.any_ipv4(),
+            ec2.Port.all_traffic(),
+            "Disallow all outbound traffic"
+        )
+        
         log_group = logs.LogGroup(self, "VpcFlowLogsLogGroup")
 
         role = iam.Role(self, "VpcFlowLogsRole",
