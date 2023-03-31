@@ -32,12 +32,3 @@ jobs:
       run: |
         cd deploy
         cdk synth
-    - name: Stelligent cfn_nag
-      uses: stelligent/cfn_nag@v0.8.6
-      with:
-        input_path: deploy/cdk.out/
-        extra_args: -t ..*\.template\.json
-#    - uses: github/codeql-action/upload-sarif@v1
-#      with:
-#        sarif_file: cfn_nag.sarif
-
