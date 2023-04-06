@@ -1,4 +1,4 @@
-name: NAG Check
+name: CDK Deploy
 
 on:
   push:
