@@ -45,6 +45,7 @@ class AppStack(Stack):
         # Env
         zone_name = os.environ.get('ZONE_NAME', 'example.com')
         domain_name = os.environ.get('DOMAIN_NAME', 'app.example.com')
+        app_path = os.environ.get('APP_PATH', '../app')
 
         # Route53 Zone
         hosted_zone = route53.HostedZone.from_lookup(
@@ -137,7 +138,7 @@ class AppStack(Stack):
         
         # Docker Image
         image = ecr_assets.DockerImageAsset(
-            self, 'AppImage', directory='../app')
+            self, 'AppImage', directory=app_path)
 
         # Fargate Application
         alb_securiy_group = ec2.SecurityGroup(
