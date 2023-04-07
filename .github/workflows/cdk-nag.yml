@@ -28,7 +28,7 @@ jobs:
       run: |
         cd deploy
         cdk bootstrap aws://${{ env.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }}
-    - name: Build
+    - name: Test
       run: |
         cd deploy/tests
         APP_PATH=../../app/ cdk synth
