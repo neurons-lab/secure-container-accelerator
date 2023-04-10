@@ -118,7 +118,6 @@ class AppStack(Stack):
             )
         )
 
-
         log_group = logs.LogGroup(
             self, "VpcFlowLogs",
             log_group_name="/vpc/flow-logs",
@@ -236,7 +235,19 @@ class AppStack(Stack):
             logging=ecs.LogDrivers.aws_logs(
                 stream_prefix='app',
                 log_retention=logs.RetentionDays.ONE_WEEK
-            )
+            ),
+            port_mappings=[
+                ecs.PortMapping(
+                    container_port=80,
+                    host_port=80,
+                    protocol=ecs.Protocol.TCP
+                ),
+                ecs.PortMapping(
+                    container_port=443,
+                    host_port=443,
+                    protocol=ecs.Protocol.TCP
+                )
+            ]
         )
 
         service = ecs_patterns.ApplicationLoadBalancedFargateService(
