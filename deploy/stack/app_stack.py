@@ -248,9 +248,10 @@ class AppStack(Stack):
             assign_public_ip=True,
             public_load_balancer=True,
             certificate=cert,
-            task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
-                image=ecs.ContainerImage.from_docker_image_asset(image),
-            ),
+            # task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
+            #     image=ecs.ContainerImage.from_docker_image_asset(image),
+            # ),
+            task_definition=task_definition,
             task_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
             security_groups=[service_securiy_group],
             load_balancer=alb,
