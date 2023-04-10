@@ -203,6 +203,15 @@ class AppStack(Stack):
             prefix='app-alb'
         )
 
+        # ECS Task Definition Role to access SSM Parameter Store for openai/api_key
+        task_definition_role = iam.Role(
+            self, 'AppTaskDefinitionRole',
+            assumed_by=iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
+            managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name('service-role/AmazonECSTaskExecutionRolePolicy'),
+                iam.ManagedPolicy.from_aws_managed_policy_name('AmazonSSMReadOnlyAccess')
+            ]
+        )
 
         cluster = ecs.Cluster(self, 'AppCluster', vpc=vpc)
         service = ecs_patterns.ApplicationLoadBalancedFargateService(
@@ -220,7 +229,8 @@ class AppStack(Stack):
             task_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
             security_groups=[service_securiy_group],
             load_balancer=alb,
-            service_name='app-service'
+            service_name='app-service',
+            role=task_definition_role
         )
         CfnOutput(
             self, 'AppServiceAlbUrl', description='App Service ALB URL',
