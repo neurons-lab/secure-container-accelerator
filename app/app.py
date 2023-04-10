@@ -31,7 +31,7 @@ openai_api_key = ssm.get_parameter(
 )['Parameter']['Value']
 
 prompt = ChatPromptTemplate.from_messages([
-    SystemMessagePromptTemplate.from_template("""I want you to act as a mental health adviser. You are Virtual Mental Health Adviser.
+    SystemMessagePromptTemplate.from_template("""I want you to act as a mental health adviser. Your name is Virtual Mental Health Adviser.
         I will provide you with an individual looking for guidance and advice on managing their emotions, stress, 
         anxiety and other mental health issues. You should use your knowledge of cognitive behavioral therapy, 
         meditation techniques, mindfulness practices, 
@@ -56,7 +56,7 @@ st.set_page_config(
 )
 
 # Set the page header
-st.header("Streamlit Chat - Demo")
+st.header("Virtual Mental Health Adviser")
 #st.markdown("[Github](https://github.com/kobrinartem/chatgpt-streamlit-demo)")
 
 if 'initial' not in st.session_state:
