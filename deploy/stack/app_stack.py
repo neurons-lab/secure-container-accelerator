@@ -203,6 +203,13 @@ class AppStack(Stack):
             prefix='app-alb'
         )
 
+        # ECS Cluster
+        cluster = ecs.Cluster(
+            self, 'AppCluster',
+            vpc=vpc,
+            cluster_name='app-cluster'
+        )
+
         # ECS Task Definition Role to access SSM Parameter Store
         task_definition_role = iam.Role(
             self, 'AppTaskDefinitionRole',
@@ -213,7 +220,25 @@ class AppStack(Stack):
             ]
         )
 
-        cluster = ecs.Cluster(self, 'AppCluster', vpc=vpc)
+        # ECS Task Definition
+        task_definition = ecs.FargateTaskDefinition(
+            self, 'AppTaskDefinition',
+            cpu=256,
+            memory_limit_mib=512,
+            execution_role=task_definition_role,
+            task_role=task_definition_role
+        )
+
+        # ECS Task Definition Container
+        container = task_definition.add_container(
+            'AppContainer',
+            image=ecs.ContainerImage.from_docker_image_asset(image),
+            logging=ecs.LogDrivers.aws_logs(
+                stream_prefix='app',
+                log_retention=logs.RetentionDays.ONE_WEEK
+            )
+        )
+
         service = ecs_patterns.ApplicationLoadBalancedFargateService(
             self, 'AppService',
             cluster=cluster,
@@ -229,8 +254,7 @@ class AppStack(Stack):
             task_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
             security_groups=[service_securiy_group],
             load_balancer=alb,
-            service_name='app-service',
-            role=task_definition_role
+            service_name='app-service'
         )
         CfnOutput(
             self, 'AppServiceAlbUrl', description='App Service ALB URL',
