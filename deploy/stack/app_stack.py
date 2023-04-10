@@ -203,7 +203,7 @@ class AppStack(Stack):
             prefix='app-alb'
         )
 
-        # ECS Task Definition Role to access SSM Parameter Store for openai/api_key
+        # ECS Task Definition Role to access SSM Parameter Store
         task_definition_role = iam.Role(
             self, 'AppTaskDefinitionRole',
             assumed_by=iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
