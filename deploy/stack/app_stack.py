@@ -125,7 +125,6 @@ class AppStack(Stack):
 
         log_group = logs.LogGroup(
             self, "VpcFlowLogs",
-            log_group_name="/vpc/flow-logs",
             encryption_key=kms_key,
             removal_policy=RemovalPolicy.DESTROY
         )
