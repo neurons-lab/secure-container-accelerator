@@ -66,6 +66,7 @@ class AppStack(Stack):
         vpc = ec2.Vpc(
             self, 'AppVpc',
             ip_addresses=ec2.IpAddresses.cidr('10.0.0.0/16'),
+            max_azs=1,
             subnet_configuration=[
                 ec2.SubnetConfiguration(
                     name='public',
@@ -190,8 +191,7 @@ class AppStack(Stack):
             vpc=vpc,
             internet_facing=True,
             security_group=alb_securiy_group,
-            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC),
-            load_balancer_name='app-alb'
+            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC)
         )
         # ALB log bucket
         alb_log_bucket = s3.Bucket(
@@ -211,7 +211,7 @@ class AppStack(Stack):
         cluster = ecs.Cluster(
             self, 'AppCluster',
             vpc=vpc,
-            cluster_name='app-cluster'
+            cluster_name='app-cluster{}'.format(stack_name)
         )
 
         # ECS Task Definition Role to access SSM Parameter Store
@@ -268,7 +268,7 @@ class AppStack(Stack):
             task_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
             security_groups=[service_securiy_group],
             load_balancer=alb,
-            service_name='app-service'
+            service_name='app-service{}'.format(stack_name)
         )
         CfnOutput(
             self, 'AppServiceAlbUrl{}'.format(stack_name), description='App Service ALB URL',
