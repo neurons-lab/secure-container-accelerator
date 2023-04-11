@@ -264,7 +264,7 @@ class AppStack(Stack):
             task_definition=task_definition,
             task_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
             security_groups=[service_securiy_group],
-            load_balancer=alb)
+            load_balancer=alb
         )
         CfnOutput(
             self, 'AppServiceAlbUrl{}'.format(stack_name), description='App Service ALB URL',
