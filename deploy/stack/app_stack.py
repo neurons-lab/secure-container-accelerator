@@ -271,8 +271,8 @@ class AppStack(Stack):
             service_name='app-service'
         )
         CfnOutput(
-            self, 'AppServiceAlbUrl', description='App Service ALB URL',
-            export_name='appServiceAlbUrl', value=service.load_balancer.load_balancer_dns_name)
+            self, 'AppServiceAlbUrl_{}'.format(stack_name), description='App Service ALB URL',
+            export_name='appServiceAlbUrl_{}'.format(stack_name), value=service.load_balancer.load_balancer_dns_name)
 
         # Domain
         domain = route53.ARecord(
@@ -283,5 +283,5 @@ class AppStack(Stack):
                 route53_targets.LoadBalancerTarget(service.load_balancer)),
             ttl=Duration.seconds(60))
         CfnOutput(
-            self, 'AppServiceUrl', description='App Service URL',
-            export_name='appServiceUrl', value="https://{}".format(domain.domain_name))
+            self, 'AppServiceUrl_{}'.format(stack_name), description='App Service URL',
+            export_name='appServiceUrl_{}'.format(stack_name), value="https://{}".format(domain.domain_name))
