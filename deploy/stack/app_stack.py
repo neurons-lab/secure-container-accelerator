@@ -102,7 +102,6 @@ class AppStack(Stack):
         # KMS Key for VPC Flow Logs Encryption
         kms_key = kms.Key(
             self, "VpcFlowLogsKmsKey",
-            alias="vpc-flow-logs-kms-key",
             description="KMS Key for VPC Flow Logs Encryption",
             enable_key_rotation=True,
             removal_policy=RemovalPolicy.DESTROY,
@@ -237,7 +236,7 @@ class AppStack(Stack):
             'AppContainer',
             image=ecs.ContainerImage.from_docker_image_asset(image),
             logging=ecs.LogDrivers.aws_logs(
-                stream_prefix='app{}'.format(stack_name),
+                stream_prefix='app',
                 log_retention=logs.RetentionDays.ONE_WEEK
             ),
             port_mappings=[
