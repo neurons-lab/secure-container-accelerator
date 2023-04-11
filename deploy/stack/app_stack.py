@@ -259,9 +259,6 @@ class AppStack(Stack):
             assign_public_ip=True,
             public_load_balancer=True,
             certificate=cert,
-            # task_image_options=ecs_patterns.ApplicationLoadBalancedTaskImageOptions(
-            #     image=ecs.ContainerImage.from_docker_image_asset(image),
-            # ),
             task_definition=task_definition,
             task_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
             security_groups=[service_securiy_group],
@@ -282,4 +279,4 @@ class AppStack(Stack):
             ttl=Duration.seconds(60))
         CfnOutput(
             self, 'AppServiceUrl', description='App Service URL',
-            export_name='appServiceUrl', value=domain.domain_name)
+            export_name='appServiceUrl', value="https://{}".format(domain.domain_name))
