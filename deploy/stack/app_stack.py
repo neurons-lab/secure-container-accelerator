@@ -43,13 +43,14 @@ class AppStack(Stack):
         """Init"""
         super().__init__(scope, _id, **kwargs)
 
-        # Cost Center Tag
-        Tags.of(self).add('CostCenter', 'mental-health-accelerator')
-
         # Env
         zone_name = os.environ.get('ZONE_NAME', 'example.com')
         domain_name = os.environ.get('DOMAIN_NAME', 'app.example.com')
         app_path = os.environ.get('APP_PATH', '../app')
+        stack_name = os.getenv('STACK_NAME', 'ContainerAcceleratorStack')
+
+        # Cost Center Tag
+        Tags.of(self).add('CostCenter', stack_name)
 
         # Route53 Zone
         hosted_zone = route53.HostedZone.from_lookup(

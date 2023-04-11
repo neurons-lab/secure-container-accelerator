@@ -22,7 +22,7 @@ app = App()
 
 # Stack
 AppStack(
-    app, 'ContainerAcceleratorStack',
+    app, app, os.getenv('STACK_NAME', 'ContainerAcceleratorStack'),
     env=Environment(
         account=os.getenv('AWS_ACCOUNT_ID', os.getenv('CDK_DEFAULT_ACCOUNT')),
         region=os.getenv('AWS_DEFAULT_REGION', os.getenv('CDK_DEFAULT_REGION'))
