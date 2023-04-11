@@ -3,6 +3,7 @@ import os
 from constructs import Construct
 from aws_cdk import (
     Stack,
+    Tags,
     Duration,
     CfnOutput,
     RemovalPolicy,
@@ -43,9 +44,7 @@ class AppStack(Stack):
         super().__init__(scope, _id, **kwargs)
 
         # Cost Center Tag
-        self.node.apply_aspect(
-            TagAspect(key='CostCenter', value='mental-health-accelerator'))
-
+        Tags.of(self).add('CostCenter', 'mental-health-accelerator')
 
         # Env
         zone_name = os.environ.get('ZONE_NAME', 'example.com')
