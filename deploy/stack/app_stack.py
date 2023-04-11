@@ -196,7 +196,7 @@ class AppStack(Stack):
         # ALB log bucket
         alb_log_bucket = s3.Bucket(
             self, 'AppAlbLogBucket',
-            removal_policy=RemovalPolicy.DESTROY,
+            removal_policy=RemovalPolicy.RETAIN,
             encryption=s3.BucketEncryption.S3_MANAGED,
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL
         )
@@ -238,7 +238,7 @@ class AppStack(Stack):
             'AppContainer',
             image=ecs.ContainerImage.from_docker_image_asset(image),
             logging=ecs.LogDrivers.aws_logs(
-                stream_prefix='app',
+                stream_prefix='app{}'.format(stack_name),
                 log_retention=logs.RetentionDays.ONE_WEEK
             ),
             port_mappings=[
@@ -258,17 +258,13 @@ class AppStack(Stack):
         service = ecs_patterns.ApplicationLoadBalancedFargateService(
             self, 'AppService',
             cluster=cluster,
-            cpu=256,
-            memory_limit_mib=512,
             desired_count=1,
-            assign_public_ip=True,
             public_load_balancer=True,
             certificate=cert,
             task_definition=task_definition,
             task_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
             security_groups=[service_securiy_group],
-            load_balancer=alb,
-            service_name='app-service{}'.format(stack_name)
+            load_balancer=alb)
         )
         CfnOutput(
             self, 'AppServiceAlbUrl{}'.format(stack_name), description='App Service ALB URL',
