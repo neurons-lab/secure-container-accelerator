@@ -30,6 +30,23 @@ openai_api_key = ssm.get_parameter(
     WithDecryption=True
 )['Parameter']['Value']
 
+# Set the page title and icon
+st.set_page_config(
+    page_title="Virtual Mental Health Adviser",
+    # page_icon=":robot:",
+    page_icon="🧊",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+language_option = st.selectbox(
+    'Language',
+    ('', 'English', 'French', 'Ukrainian', 'German'))
+
+if not language_option:
+  st.warning('Please select language.')
+  st.stop()
+
 prompt = ChatPromptTemplate.from_messages([
     SystemMessagePromptTemplate.from_template("""I want you to act as a mental health adviser. Your name is Virtual Mental Health Adviser.
         I will provide you with an individual looking for guidance and advice on managing their emotions, stress, 
@@ -38,9 +55,10 @@ prompt = ChatPromptTemplate.from_messages([
         and other therapeutic methods in order to create strategies 
         that the individual can implement in order to improve their overall wellbeing.
         Ask questions to get to know the individual and their situation. 
-        Start with introduction and initiate convesation with me to get my situation."""),
+        Start with introduction and initiate convesation with me to get my situation.
+        Your communication must be on {language} language.""".format(language=language_option)),
     MessagesPlaceholder(variable_name="history"),
-    HumanMessagePromptTemplate.from_template("{input}")
+    HumanMessagePromptTemplate.from_template("{input}"),
 ])
 
 chat = ChatOpenAI(temperature=0.9, openai_api_key=openai_api_key)
@@ -49,15 +67,12 @@ conversation = ConversationChain(memory=memory, prompt=prompt, llm=chat)
 
 first_ai_replica = conversation.predict(input="Start with introduction and initiate convesation with me to get my situation.")
 
-# Set the page title and icon
-st.set_page_config(
-    page_title="Virtual Mental Health Adviser",
-    page_icon=":robot:"
-)
-
 # Set the page header
 st.header("Virtual Mental Health Adviser")
 #st.markdown("[Github](https://github.com/kobrinartem/chatgpt-streamlit-demo)")
+
+
+st.markdown(f'**Virtual Mental Health Adviser Language: {language_option}**')
 
 if 'initial' not in st.session_state:
     st.session_state['initial'] = first_ai_replica
