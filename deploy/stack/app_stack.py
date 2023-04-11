@@ -66,7 +66,7 @@ class AppStack(Stack):
         vpc = ec2.Vpc(
             self, 'AppVpc',
             ip_addresses=ec2.IpAddresses.cidr('10.0.0.0/16'),
-            max_azs=1,
+            max_azs=2,
             subnet_configuration=[
                 ec2.SubnetConfiguration(
                     name='public',
