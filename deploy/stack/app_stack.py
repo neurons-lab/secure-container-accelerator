@@ -210,8 +210,7 @@ class AppStack(Stack):
         # ECS Cluster
         cluster = ecs.Cluster(
             self, 'AppCluster',
-            vpc=vpc,
-            cluster_name='app-cluster{}'.format(stack_name)
+            vpc=vpc
         )
 
         # ECS Task Definition Role to access SSM Parameter Store
