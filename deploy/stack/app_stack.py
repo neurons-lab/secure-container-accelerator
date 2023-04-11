@@ -42,6 +42,11 @@ class AppStack(Stack):
         """Init"""
         super().__init__(scope, _id, **kwargs)
 
+        # Cost Center Tag
+        self.node.apply_aspect(
+            TagAspect(key='CostCenter', value='mental-health-accelerator'))
+
+
         # Env
         zone_name = os.environ.get('ZONE_NAME', 'example.com')
         domain_name = os.environ.get('DOMAIN_NAME', 'app.example.com')
@@ -99,7 +104,7 @@ class AppStack(Stack):
             alias="vpc-flow-logs-kms-key",
             description="KMS Key for VPC Flow Logs Encryption",
             enable_key_rotation=True,
-            removal_policy=RemovalPolicy.DESTROY
+            removal_policy=RemovalPolicy.DESTROY,
         )
         # KMS Policy to allow VPC Flow Logs to write logs to CloudWatch Logs
         kms_resource_policy_vpc_flow_logs = kms_key.add_to_resource_policy(
