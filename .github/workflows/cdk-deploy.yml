@@ -14,6 +14,7 @@ env:
   DOMAIN_NAME: ${{ vars.DOMAIN_NAME }}
   ZONE_NAME: ${{ vars.ZONE_NAME }}
   APP_PATH: ${{ vars.APP_PATH }}
+  STACK_NAME: ${{ vars.STACK_NAME }}
 
 jobs:
   build-and-deploy:
