@@ -19,6 +19,8 @@ from aws_cdk import (
     aws_route53 as route53,
     aws_route53_targets as route53_targets,
     aws_certificatemanager as acm,
+    aws_rds as rds,
+    aws_secretsmanager as sm
 )
 from dotenv import load_dotenv
 load_dotenv('.env.sample', override=False)
@@ -77,6 +79,11 @@ class AppStack(Stack):
                 ec2.SubnetConfiguration(
                     name='private',
                     subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS,
+                    cidr_mask=24
+                ),
+                ec2.SubnetConfiguration(
+                    name='protected',
+                    subnet_type=ec2.SubnetType.PRIVATE_ISOLATED,
                     cidr_mask=24
                 )
             ])
@@ -266,6 +273,58 @@ class AppStack(Stack):
         CfnOutput(
             self, 'AppServiceAlbUrl{}'.format(stack_name), description='App Service ALB URL',
             export_name='appServiceAlbUrl{}'.format(stack_name), value=service.load_balancer.load_balancer_dns_name)
+
+        # RDS Security Group
+        rds_service_securiy_group = ec2.SecurityGroup(
+            self, 'AppRdsServiceSecurityGroup',
+            vpc=vpc,
+            allow_all_outbound=True,
+            description='App RDS Service Security Group',
+            security_group_name='app-rds-service-security-group'
+        )
+
+        rds_service_securiy_group.add_ingress_rule(
+            description='Allow MySQL from App Service',
+            peer=service_securiy_group,
+            connection=ec2.Port.tcp(3306)
+        )
+
+        # Secret Manager
+        secret = sm.Secret(
+            self, 'AppRdsSecret',
+            secret_name='app-rds-secret',
+            generate_secret_string=sm.SecretStringGenerator(
+                secret_string_template='{"username": "admin"}',
+                generate_string_key='password',
+                exclude_punctuation=True,
+                include_space=False,
+                password_length=16
+            )
+        )
+
+        # Access to Secret Manager
+        secret.grant_read(task_definition_role)
+
+        # RDS Instance
+        rds_instance = rds.DatabaseInstance(
+            self, 'AppRdsInstance',
+            engine=rds.DatabaseInstanceEngine.mysql(
+                version=rds.MysqlEngineVersion.VER_8_0
+            ),
+            vpc=vpc,
+            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_ISOLATED),
+            instance_type=ec2.InstanceType.of(
+                ec2.InstanceClass.BURSTABLE3,
+                ec2.InstanceSize.MICRO
+            ),
+            removal_policy=RemovalPolicy.DESTROY,
+            deletion_protection=False,
+            security_groups=[rds_service_securiy_group],
+            allocated_storage=20,
+            database_name='app',
+            credentials=rds.Credentials.from_secret(secret),
+            backup_retention=Duration.days(7)
+        )
 
         # Domain
         domain = route53.ARecord(
