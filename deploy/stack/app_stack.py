@@ -20,8 +20,10 @@ from aws_cdk import (
     aws_route53_targets as route53_targets,
     aws_certificatemanager as acm,
     aws_rds as rds,
-    aws_secretsmanager as sm
+    aws_secretsmanager as sm,
+    aws_backup as backup,
 )
+from cdk_nag import NagSuppressions, NagPackSuppression
 from dotenv import load_dotenv
 load_dotenv('.env.sample', override=False)
 load_dotenv('.env', override=True)
@@ -50,6 +52,7 @@ class AppStack(Stack):
         domain_name = os.environ.get('DOMAIN_NAME', 'app.example.com')
         app_path = os.environ.get('APP_PATH', '../app')
         stack_name = os.getenv('STACK_NAME', 'ContainerAcceleratorStack')
+        rds_port = int(os.getenv('RDS_PORT', '33306'))
 
         # Cost Center Tag
         Tags.of(self).add('CostCenter', stack_name)
@@ -88,62 +91,62 @@ class AppStack(Stack):
                 )
             ])
         default_security_group = ec2.SecurityGroup.from_security_group_id(
-            self, "default", vpc.vpc_default_security_group
+            self, 'default', vpc.vpc_default_security_group
         )
 
         ec2.CfnSecurityGroupEgress(
             self,
-            "AllowOnlyVPCOutbound",
+            'AllowOnlyVPCOutbound',
             group_id=default_security_group.security_group_id,
-            ip_protocol="-1",
+            ip_protocol='-1',
             cidr_ip=vpc.vpc_cidr_block
         )
         ec2.CfnSecurityGroupIngress(
             self,
-            "AllowOnlyVPCInbound",
+            'AllowOnlyVPCInbound',
             group_id=default_security_group.security_group_id,
-            ip_protocol="-1",
+            ip_protocol='-1',
             cidr_ip=vpc.vpc_cidr_block
         )
 
         # KMS Key for VPC Flow Logs Encryption
         kms_key = kms.Key(
-            self, "VpcFlowLogsKmsKey",
-            description="KMS Key for VPC Flow Logs Encryption",
+            self, 'VpcFlowLogsKmsKey',
+            description='KMS Key for VPC Flow Logs Encryption',
             enable_key_rotation=True,
             removal_policy=RemovalPolicy.DESTROY,
         )
         # KMS Policy to allow VPC Flow Logs to write logs to CloudWatch Logs
         kms_resource_policy_vpc_flow_logs = kms_key.add_to_resource_policy(
             iam.PolicyStatement(
-                actions=["kms:Encrypt", "kms:Decrypt", "kms:ReEncrypt*", "kms:GenerateDataKey*", "kms:DescribeKey"],
-                resources=["*"],
-                principals=[iam.ServicePrincipal("vpc-flow-logs.amazonaws.com")]
+                actions=['kms:Encrypt', 'kms:Decrypt', 'kms:ReEncrypt*', 'kms:GenerateDataKey*', 'kms:DescribeKey'],
+                resources=['*'],
+                principals=[iam.ServicePrincipal('vpc-flow-logs.amazonaws.com')]
             )
         )
         # KMS Policy to allow CloudWatch Logs to write logs to KMS
         kms_resource_policy_cloudwatch_logs = kms_key.add_to_resource_policy(
             iam.PolicyStatement(
-                actions=["kms:Encrypt", "kms:Decrypt", "kms:ReEncrypt*", "kms:GenerateDataKey*", "kms:DescribeKey"],
-                resources=["*"],
-                principals=[iam.ServicePrincipal("logs.amazonaws.com")]
+                actions=['kms:Encrypt', 'kms:Decrypt', 'kms:ReEncrypt*', 'kms:GenerateDataKey*', 'kms:DescribeKey'],
+                resources=['*'],
+                principals=[iam.ServicePrincipal('logs.amazonaws.com')]
             )
         )
 
         log_group = logs.LogGroup(
-            self, "VpcFlowLogs",
+            self, 'VpcFlowLogs',
             encryption_key=kms_key,
-            removal_policy=RemovalPolicy.DESTROY
+            removal_policy=RemovalPolicy.DESTROY,
         )
 
-        role = iam.Role(self, "VpcFlowLogsRole",
-            assumed_by=iam.ServicePrincipal("vpc-flow-logs.amazonaws.com")        
+        role = iam.Role(self, 'VpcFlowLogsRole',
+            assumed_by=iam.ServicePrincipal('vpc-flow-logs.amazonaws.com')
         )
 
-        ec2.FlowLog(self, "VpcFlowLog",
+        ec2.FlowLog(self, 'VpcFlowLog',
             resource_type=ec2.FlowLogResourceType.from_vpc(vpc),
             destination=ec2.FlowLogDestination.to_cloud_watch_logs(log_group, role),
-            traffic_type=ec2.FlowLogTrafficType.ALL
+            traffic_type=ec2.FlowLogTrafficType.ALL,
         )
         
         # Docker Image
@@ -196,14 +199,19 @@ class AppStack(Stack):
             vpc=vpc,
             internet_facing=True,
             security_group=alb_securiy_group,
-            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC)
+            drop_invalid_header_fields=True,
+            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC),
+            deletion_protection=True,
         )
         # ALB log bucket
         alb_log_bucket = s3.Bucket(
             self, 'AppAlbLogBucket',
+            enforce_ssl=True,
+            versioned=True,
             removal_policy=RemovalPolicy.RETAIN,
-            encryption=s3.BucketEncryption.S3_MANAGED,
-            block_public_access=s3.BlockPublicAccess.BLOCK_ALL
+            encryption=s3.BucketEncryption.KMS,
+            encryption_key=kms_key,
+            block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
         )
 
         # enable ALB logs
@@ -215,7 +223,8 @@ class AppStack(Stack):
         # ECS Cluster
         cluster = ecs.Cluster(
             self, 'AppCluster',
-            vpc=vpc
+            vpc=vpc,
+            container_insights=True,
         )
 
         # ECS Task Definition Role to access SSM Parameter Store
@@ -234,7 +243,15 @@ class AppStack(Stack):
             cpu=256,
             memory_limit_mib=512,
             execution_role=task_definition_role,
-            task_role=task_definition_role
+            task_role=task_definition_role,
+        )
+
+        # ECS Log Group
+        task_log_group = logs.LogGroup(
+            self, 'AppTaskLogs',
+            encryption_key=kms_key,
+            retention=logs.RetentionDays.ONE_WEEK,
+            removal_policy=RemovalPolicy.DESTROY,
         )
 
         # ECS Task Definition Container
@@ -243,7 +260,7 @@ class AppStack(Stack):
             image=ecs.ContainerImage.from_docker_image_asset(image),
             logging=ecs.LogDrivers.aws_logs(
                 stream_prefix='app',
-                log_retention=logs.RetentionDays.ONE_WEEK
+                log_group=task_log_group,
             ),
             port_mappings=[
                 ecs.PortMapping(
@@ -286,24 +303,44 @@ class AppStack(Stack):
         rds_service_securiy_group.add_ingress_rule(
             description='Allow MySQL from App Service',
             peer=service_securiy_group,
-            connection=ec2.Port.tcp(3306)
+            connection=ec2.Port.tcp(rds_port)
         )
 
         # Secret Manager
         secret = sm.Secret(
             self, 'AppRdsSecret',
             secret_name='app-rds-secret',
+            encryption_key=kms_key,
             generate_secret_string=sm.SecretStringGenerator(
                 secret_string_template='{"username": "admin"}',
                 generate_string_key='password',
                 exclude_punctuation=True,
                 include_space=False,
-                password_length=16
+                password_length=16,
+            ),
+        )
+        # Rotation
+        secret.add_rotation_schedule(
+            'AppRdsSecretRotationSchedule',
+            automatically_after=Duration.days(90),
+            hosted_rotation=sm.HostedRotation.mysql_single_user(
+                vpc=vpc,
+                vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_ISOLATED),
+                security_groups=[rds_service_securiy_group],
             )
         )
 
         # Access to Secret Manager
         secret.grant_read(task_definition_role)
+
+        # RDS Logs Retention Role
+        rds_logs_retention_role = iam.Role(
+            self, 'AppRdsLogsRetentionRole',
+            assumed_by=iam.ServicePrincipal('rds.amazonaws.com'),
+            managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name('service-role/AmazonRDSEnhancedMonitoringRole')
+            ]
+        )
 
         # RDS Instance
         rds_instance = rds.DatabaseInstance(
@@ -311,19 +348,38 @@ class AppStack(Stack):
             engine=rds.DatabaseInstanceEngine.mysql(
                 version=rds.MysqlEngineVersion.VER_8_0
             ),
+            port=rds_port,
             vpc=vpc,
             vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_ISOLATED),
             instance_type=ec2.InstanceType.of(
                 ec2.InstanceClass.BURSTABLE3,
                 ec2.InstanceSize.MICRO
             ),
+            multi_az=True,
+            monitoring_interval=Duration.minutes(5),
             removal_policy=RemovalPolicy.DESTROY,
-            deletion_protection=False,
+            deletion_protection=True,
             security_groups=[rds_service_securiy_group],
             allocated_storage=20,
+            storage_encrypted=True,
             database_name='app',
             credentials=rds.Credentials.from_secret(secret),
-            backup_retention=Duration.days(7)
+            backup_retention=Duration.days(7),
+            cloudwatch_logs_exports=['audit', 'error', 'general', 'slowquery'],
+            cloudwatch_logs_retention=logs.RetentionDays.ONE_WEEK,
+            cloudwatch_logs_retention_role=rds_logs_retention_role,
+        )
+
+        # Backup Plan
+        backup_plan_vault = backup.BackupVault(
+            self, 'AppRdsBackupVault',
+            encryption_key=kms_key,
+        )
+        backup_plan = backup.BackupPlan.daily35_day_retention(
+            self, 'AppRdsBackupPlan', backup_vault=backup_plan_vault)
+        backup_plan.add_selection(
+            'AppRdsBackupPlanSelection',
+            resources=[backup.BackupResource.from_rds_database_instance(rds_instance)],
         )
 
         # Domain
@@ -336,4 +392,63 @@ class AppStack(Stack):
             ttl=Duration.seconds(60))
         CfnOutput(
             self, 'AppServiceUrl{}'.format(stack_name), description='App Service URL',
-            export_name='appServiceUrl{}'.format(stack_name), value="https://{}".format(domain.domain_name))
+            export_name='appServiceUrl{}'.format(stack_name), value='https://{}'.format(domain.domain_name))
+
+        # NAG
+
+        # AwsSolutions-IAM4
+        for resource_path in [
+            '/ContainerAcceleratorStack/AppRdsLogsRetentionRole',
+            '/ContainerAcceleratorStack/AppRdsInstance/MonitoringRole/Resource',
+            '/ContainerAcceleratorStack/AppTaskDefinitionRole/Resource',
+            '/ContainerAcceleratorStack/AppRdsBackupPlan/AppRdsBackupPlanSelection/Role/Resource',
+        ]:
+            NagSuppressions.add_resource_suppressions_by_path(
+                self, resource_path,
+                [NagPackSuppression(id='AwsSolutions-IAM4', reason='Managed policy used')])
+        
+        # AwsSolutions-IAM5
+        for resource_path in [
+            '/ContainerAcceleratorStack/AppRdsLogsRetentionRole/DefaultPolicy/Resource',
+            '/ContainerAcceleratorStack/AppTaskDefinitionRole/DefaultPolicy/Resource',
+        ]:
+            NagSuppressions.add_resource_suppressions_by_path(
+                self, resource_path,
+                [NagPackSuppression(id='AwsSolutions-IAM5', reason='Wildcard in autogenerated resource')])
+        
+        # HIPAA.Security-IAMNoInlinePolicy
+        for resource_path in [
+            '/ContainerAcceleratorStack/AppRdsLogsRetentionRole/DefaultPolicy/Resource',
+            '/ContainerAcceleratorStack/AppTaskDefinitionRole/DefaultPolicy/Resource',
+            '/ContainerAcceleratorStack/VpcFlowLogsRole/DefaultPolicy/Resource',
+        ]:
+            NagSuppressions.add_resource_suppressions_by_path(
+                self, resource_path,
+                [NagPackSuppression(id='HIPAA.Security-IAMNoInlinePolicy', reason='Cdk inline policy')])
+
+        # HIPAA.Security-VPCNoUnrestrictedRouteToIGW
+        for resource_path in [
+            '/ContainerAcceleratorStack/AppVpc/publicSubnet1/DefaultRoute',
+            '/ContainerAcceleratorStack/AppVpc/publicSubnet2/DefaultRoute',
+        ]:
+            NagSuppressions.add_resource_suppressions_by_path(
+                self, resource_path,
+                [NagPackSuppression(id='HIPAA.Security-VPCNoUnrestrictedRouteToIGW', reason='Public subnet')])
+
+        # AwsSolutions-EC23
+        for resource_path in [
+            '/ContainerAcceleratorStack/AppAlbSecurityGroup/Resource',
+        ]:
+            NagSuppressions.add_resource_suppressions_by_path(
+                self, resource_path,
+                [NagPackSuppression(id='AwsSolutions-EC23', reason='This ALB are public accessed')])
+
+        # S3 Bucket Rules
+        NagSuppressions.add_resource_suppressions_by_path(
+            self, '/ContainerAcceleratorStack/AppAlbLogBucket/Resource',
+            [
+                NagPackSuppression(id='AwsSolutions-S1', reason='No need for logging access to log bucket'),
+                NagPackSuppression(id='HIPAA.Security-S3BucketLoggingEnabled', reason='No need for logging access to log bucket'),
+                NagPackSuppression(id='HIPAA.Security-S3BucketReplicationEnabled', reason='No need for replication of log bucket'),
+            ])
+    
